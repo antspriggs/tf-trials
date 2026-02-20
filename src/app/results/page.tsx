@@ -1,0 +1,206 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
+
+interface ResultRow {
+  id: number;
+  athlete_id: number;
+  event_id: number;
+  raw_value: number;
+  display_value: string;
+  qual_status: 'automatic' | 'provisional' | 'dnq';
+  first_name: string;
+  last_name: string;
+  bib_number: number | null;
+  grade: number;
+  gender: string;
+  event_name: string;
+  event_type: string;
+  event_unit: string;
+}
+
+interface Event {
+  id: number;
+  name: string;
+  type: string;
+}
+
+export default function ResultsPage() {
+  const [results, setResults] = useState<Record<string, ResultRow[]>>({});
+  const [events, setEvents] = useState<Event[]>([]);
+  const [lastUpdate, setLastUpdate] = useState<Date>(new Date());
+  const [genderFilter, setGenderFilter] = useState<'' | 'M' | 'F'>('');
+  const [gradeFilter, setGradeFilter] = useState<string>('');
+  const [statusFilter, setStatusFilter] = useState<'' | 'automatic' | 'provisional' | 'dnq'>('');
+  const [sortAsc, setSortAsc] = useState(true);
+
+  const fetchResults = () => {
+    fetch('/api/results')
+      .then(r => r.json())
+      .then(data => {
+        setResults(data.results);
+        setEvents(data.events);
+        setLastUpdate(new Date());
+      });
+  };
+
+  useEffect(() => {
+    fetchResults();
+    const interval = setInterval(fetchResults, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const qualBadge = (status: string) => {
+    if (status === 'automatic') return <span className="inline-block px-2 py-0.5 rounded text-xs font-bold bg-green-500 text-white">AUTO</span>;
+    if (status === 'provisional') return <span className="inline-block px-2 py-0.5 rounded text-xs font-bold bg-yellow-400 text-yellow-900">PROV</span>;
+    return <span className="inline-block px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-600">DNQ</span>;
+  };
+
+  const allGrades = useMemo(() => {
+    const grades = new Set<number>();
+    Object.values(results).flat().forEach(r => grades.add(r.grade));
+    return Array.from(grades).sort((a, b) => a - b);
+  }, [results]);
+
+  const filteredResults = useMemo(() => {
+    const out: Record<string, ResultRow[]> = {};
+    for (const [eventName, rows] of Object.entries(results)) {
+      let filtered = rows.filter(r => {
+        if (genderFilter && r.gender !== genderFilter) return false;
+        if (gradeFilter && String(r.grade) !== gradeFilter) return false;
+        if (statusFilter && r.qual_status !== statusFilter) return false;
+        return true;
+      });
+      filtered.sort((a, b) => sortAsc ? a.raw_value - b.raw_value : b.raw_value - a.raw_value);
+      if (filtered.length > 0) out[eventName] = filtered;
+    }
+    return out;
+  }, [results, genderFilter, gradeFilter, statusFilter, sortAsc]);
+
+  const eventsWithResults = events.filter(e => filteredResults[e.name]?.length > 0);
+  const eventsWithoutResults = events.filter(e => !filteredResults[e.name]);
+
+  return (
+    <div className="min-h-screen bg-gray-900 text-white">
+      <div className="max-w-6xl mx-auto px-4 py-6">
+        <div className="flex items-center justify-between gap-4 mb-6">
+          <div className="min-w-0">
+            <h1 className="text-2xl sm:text-3xl font-bold">Live Results</h1>
+            <p className="text-gray-400 text-xs sm:text-sm truncate">
+              Updated: {lastUpdate.toLocaleTimeString()} (auto-refreshes)
+            </p>
+          </div>
+          <Link href="/" className="px-3 py-2 bg-gray-700 rounded hover:bg-gray-600 transition text-sm shrink-0">
+            Home
+          </Link>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-3 mb-6">
+          <div className="flex rounded overflow-hidden text-sm">
+            {([['', 'All'], ['M', 'Boys'], ['F', 'Girls']] as const).map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => setGenderFilter(val)}
+                className={`px-3 py-1.5 font-medium transition ${genderFilter === val ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <select
+            value={gradeFilter}
+            onChange={e => setGradeFilter(e.target.value)}
+            className="bg-gray-700 text-gray-300 text-sm rounded px-3 py-1.5 border-none outline-none hover:bg-gray-600 transition"
+          >
+            <option value="">All Grades</option>
+            {allGrades.map(g => (
+              <option key={g} value={String(g)}>Grade {g}</option>
+            ))}
+          </select>
+
+          <div className="flex rounded overflow-hidden text-sm">
+            {([['', 'All'], ['automatic', 'AUTO'], ['provisional', 'PROV'], ['dnq', 'DNQ']] as const).map(([val, label]) => (
+              <button
+                key={val}
+                onClick={() => setStatusFilter(val)}
+                className={`px-3 py-1.5 font-medium transition ${statusFilter === val ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'}`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <button
+            onClick={() => setSortAsc(prev => !prev)}
+            className="flex items-center gap-1 px-3 py-1.5 bg-gray-700 text-gray-300 text-sm rounded font-medium hover:bg-gray-600 transition"
+          >
+            Sort {sortAsc ? '↑ Asc' : '↓ Desc'}
+          </button>
+        </div>
+
+        {eventsWithResults.length === 0 && (
+          <div className="text-center py-16 text-gray-500">
+            <div className="text-4xl mb-4">&#127939;</div>
+            <p className="text-xl">No results yet</p>
+            <p>Results will appear here as coaches enter performances</p>
+          </div>
+        )}
+
+        <div className="space-y-6">
+          {eventsWithResults.map(event => (
+            <div key={event.id} className="bg-gray-800 rounded-lg overflow-hidden">
+              <div className="px-4 py-3 bg-gray-700 flex items-center justify-between">
+                <h2 className="text-xl font-bold">{event.name}</h2>
+                <span className="text-sm text-gray-400">
+                  {filteredResults[event.name].length} result{filteredResults[event.name].length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-white border-b border-gray-600 bg-gray-700/50">
+                      <th className="text-left px-2 sm:px-4 py-2.5 w-8 sm:w-12 font-bold">#</th>
+                      <th className="text-left px-2 sm:px-4 py-2.5 font-bold">Athlete</th>
+                      <th className="text-center px-2 sm:px-4 py-2.5 w-12 sm:w-16 font-bold">Bib</th>
+                      <th className="text-center px-2 sm:px-4 py-2.5 w-16 hidden sm:table-cell font-bold">Grade</th>
+                      <th className="text-right px-2 sm:px-4 py-2.5 font-bold">Result</th>
+                      <th className="text-right px-2 sm:px-4 py-2.5 w-16 sm:w-20 font-bold">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredResults[event.name].map((r, idx) => (
+                      <tr key={r.id} className={`border-b border-gray-700/50 ${
+                        r.qual_status === 'automatic' ? 'bg-green-900/20' :
+                        r.qual_status === 'provisional' ? 'bg-yellow-900/15' : ''
+                      }`}>
+                        <td className="px-2 sm:px-4 py-2.5 text-white font-mono">{idx + 1}</td>
+                        <td className="px-2 sm:px-4 py-2.5 font-medium text-white">{r.first_name} {r.last_name}</td>
+                        <td className="px-2 sm:px-4 py-2.5 text-center font-mono text-white">{r.bib_number ?? '—'}</td>
+                        <td className="px-2 sm:px-4 py-2.5 text-center text-white hidden sm:table-cell">{r.grade}</td>
+                        <td className="px-2 sm:px-4 py-2.5 text-right font-mono font-bold text-base sm:text-lg text-white">{r.display_value}</td>
+                        <td className="px-2 sm:px-4 py-2.5 text-right">{qualBadge(r.qual_status)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {eventsWithoutResults.length > 0 && (
+          <div className="mt-8">
+            <h3 className="text-gray-500 text-sm mb-2">Upcoming Events (no results yet)</h3>
+            <div className="flex flex-wrap gap-2">
+              {eventsWithoutResults.map(e => (
+                <span key={e.id} className="px-3 py-1 bg-gray-800 text-gray-400 rounded text-sm">{e.name}</span>
+              ))}
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
