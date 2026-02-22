@@ -37,13 +37,32 @@ export default function EventsPage() {
 
   useEffect(() => { loadEvents(); }, []);
 
+  const formatFeetInches = (feet: number): string => {
+    const wholeFeet = Math.floor(feet);
+    const inches = Math.round((feet - wholeFeet) * 12);
+    return inches > 0 ? `${wholeFeet}-${inches}` : `${wholeFeet}-0`;
+  };
+
+  const formatForEdit = (val: number | null, type: string): string => {
+    if (val === null) return '';
+    if (type === 'time' && val >= 60) {
+      const minutes = Math.floor(val / 60);
+      const seconds = val - minutes * 60;
+      return `${minutes}:${seconds.toFixed(2).padStart(5, '0')}`;
+    }
+    if (type === 'distance' || type === 'height') {
+      return formatFeetInches(val);
+    }
+    return String(val);
+  };
+
   const startEdit = (event: Event) => {
     setEditing(event.id);
     setEditValues({
-      auto_qualify_m: event.auto_qualify_m !== null ? String(event.auto_qualify_m) : '',
-      prov_qualify_m: event.prov_qualify_m !== null ? String(event.prov_qualify_m) : '',
-      auto_qualify_f: event.auto_qualify_f !== null ? String(event.auto_qualify_f) : '',
-      prov_qualify_f: event.prov_qualify_f !== null ? String(event.prov_qualify_f) : '',
+      auto_qualify_m: formatForEdit(event.auto_qualify_m, event.type),
+      prov_qualify_m: formatForEdit(event.prov_qualify_m, event.type),
+      auto_qualify_f: formatForEdit(event.auto_qualify_f, event.type),
+      prov_qualify_f: formatForEdit(event.prov_qualify_f, event.type),
     });
   };
 
@@ -82,8 +101,16 @@ export default function EventsPage() {
     loadEvents();
   };
 
-  const formatStandard = (val: number | null) => {
+  const formatStandard = (val: number | null, type: string) => {
     if (val === null) return <span className="text-gray-400">—</span>;
+    if (type === 'time' && val >= 60) {
+      const minutes = Math.floor(val / 60);
+      const seconds = val - minutes * 60;
+      return <span className="font-medium">{minutes}:{seconds.toFixed(2).padStart(5, '0')}</span>;
+    }
+    if (type === 'distance' || type === 'height') {
+      return <span className="font-medium">{formatFeetInches(val)}</span>;
+    }
     return <span className="font-medium">{val}</span>;
   };
 
@@ -145,37 +172,37 @@ export default function EventsPage() {
                 </td>
                 <td className="px-4 py-3 text-center border-l border-gray-200">
                   {editing === event.id ? (
-                    <input value={editValues.auto_qualify_m} onChange={e => setEditValues({ ...editValues, auto_qualify_m: e.target.value })} className="w-20 border border-gray-300 rounded px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g. 12.5" />
+                    <input value={editValues.auto_qualify_m} onChange={e => setEditValues({ ...editValues, auto_qualify_m: e.target.value })} className="w-24 border border-gray-300 rounded px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder={event.type === 'time' ? '1:00.00' : '18-6'} />
                   ) : (
                     <span className={event.auto_qualify_m !== null ? 'text-green-700' : ''}>
-                      {formatStandard(event.auto_qualify_m)}
+                      {formatStandard(event.auto_qualify_m, event.type)}
                     </span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-center">
                   {editing === event.id ? (
-                    <input value={editValues.prov_qualify_m} onChange={e => setEditValues({ ...editValues, prov_qualify_m: e.target.value })} className="w-20 border border-gray-300 rounded px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g. 13.0" />
+                    <input value={editValues.prov_qualify_m} onChange={e => setEditValues({ ...editValues, prov_qualify_m: e.target.value })} className="w-24 border border-gray-300 rounded px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder={event.type === 'time' ? '1:05.30' : '15-0'} />
                   ) : (
                     <span className={event.prov_qualify_m !== null ? 'text-yellow-700' : ''}>
-                      {formatStandard(event.prov_qualify_m)}
+                      {formatStandard(event.prov_qualify_m, event.type)}
                     </span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-center border-l border-gray-200">
                   {editing === event.id ? (
-                    <input value={editValues.auto_qualify_f} onChange={e => setEditValues({ ...editValues, auto_qualify_f: e.target.value })} className="w-20 border border-gray-300 rounded px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g. 13.5" />
+                    <input value={editValues.auto_qualify_f} onChange={e => setEditValues({ ...editValues, auto_qualify_f: e.target.value })} className="w-24 border border-gray-300 rounded px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder={event.type === 'time' ? '1:05.30' : '14-6'} />
                   ) : (
                     <span className={event.auto_qualify_f !== null ? 'text-green-700' : ''}>
-                      {formatStandard(event.auto_qualify_f)}
+                      {formatStandard(event.auto_qualify_f, event.type)}
                     </span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-center">
                   {editing === event.id ? (
-                    <input value={editValues.prov_qualify_f} onChange={e => setEditValues({ ...editValues, prov_qualify_f: e.target.value })} className="w-20 border border-gray-300 rounded px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder="e.g. 14.0" />
+                    <input value={editValues.prov_qualify_f} onChange={e => setEditValues({ ...editValues, prov_qualify_f: e.target.value })} className="w-24 border border-gray-300 rounded px-2 py-1 text-center focus:outline-none focus:ring-2 focus:ring-blue-500" placeholder={event.type === 'time' ? '1:10.00' : '12-0'} />
                   ) : (
                     <span className={event.prov_qualify_f !== null ? 'text-yellow-700' : ''}>
-                      {formatStandard(event.prov_qualify_f)}
+                      {formatStandard(event.prov_qualify_f, event.type)}
                     </span>
                   )}
                 </td>

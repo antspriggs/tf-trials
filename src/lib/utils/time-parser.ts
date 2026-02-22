@@ -32,7 +32,7 @@ export function formatTime(totalSeconds: number): string {
   if (totalSeconds >= 60) {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds - minutes * 60;
-    return `${minutes}:${seconds < 10 ? '0' : ''}${parseFloat(seconds.toFixed(2))}`;
+    return `${minutes}:${seconds.toFixed(2).padStart(5, '0')}`;
   }
   return `${parseFloat(totalSeconds.toFixed(2))}`;
 }

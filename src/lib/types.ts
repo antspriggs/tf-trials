@@ -14,7 +14,7 @@ export interface Event {
 
 export interface Bib {
   bib_number: number;
-  is_assigned: number;
+  is_assigned: boolean;
   assigned_to: number | null;
 }
 

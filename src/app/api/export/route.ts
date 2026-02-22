@@ -1,8 +1,10 @@
 import { NextResponse } from 'next/server';
 import { getExportData } from '@/lib/queries/performances';
+import { initSchema } from '@/lib/db';
 
-export function GET() {
-  const data = getExportData();
+export async function GET() {
+  await initSchema();
+  const data = await getExportData();
 
   const headers = ['First Name', 'Last Name', 'Student ID', 'Grade', 'Gender', 'Bib Number', 'Auto-Qualified Events', 'Provisionally-Qualified Events'];
   const rows = data.map(d => [
@@ -18,7 +20,7 @@ export function GET() {
 
   const csvContent = [
     headers.join(','),
-    ...rows.map(row => row.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',')),
+    ...rows.map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')),
   ].join('\n');
 
   return new NextResponse(csvContent, {

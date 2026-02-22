@@ -1,97 +1,100 @@
-import { getDb } from '../db';
+import { sql, getClient } from '../db';
 import { assignNextBib, unassignBib } from './bibs';
 import type { Athlete } from '../types';
 
-export function getAllAthletes(): Athlete[] {
-  const db = getDb();
-  return db.prepare('SELECT * FROM athletes ORDER BY last_name, first_name').all() as Athlete[];
+export async function getAllAthletes(): Promise<Athlete[]> {
+  const { rows } = await sql`SELECT * FROM athletes ORDER BY last_name, first_name`;
+  return rows as Athlete[];
 }
 
-export function getAthleteById(id: number): Athlete | undefined {
-  const db = getDb();
-  return db.prepare('SELECT * FROM athletes WHERE id = ?').get(id) as Athlete | undefined;
+export async function getAthleteById(id: number): Promise<Athlete | undefined> {
+  const { rows } = await sql`SELECT * FROM athletes WHERE id = ${id}`;
+  return rows[0] as Athlete | undefined;
 }
 
-export function getAthleteByStudentId(studentId: string): Athlete | undefined {
-  const db = getDb();
-  return db.prepare('SELECT * FROM athletes WHERE student_id = ?').get(studentId) as Athlete | undefined;
+export async function getAthleteByStudentId(studentId: string): Promise<Athlete | undefined> {
+  const { rows } = await sql`SELECT * FROM athletes WHERE student_id = ${studentId}`;
+  return rows[0] as Athlete | undefined;
 }
 
-export function getAthleteByBib(bibNumber: number): Athlete | undefined {
-  const db = getDb();
-  return db.prepare('SELECT * FROM athletes WHERE bib_number = ?').get(bibNumber) as Athlete | undefined;
+export async function getAthleteByBib(bibNumber: number): Promise<Athlete | undefined> {
+  const { rows } = await sql`SELECT * FROM athletes WHERE bib_number = ${bibNumber}`;
+  return rows[0] as Athlete | undefined;
 }
 
-/**
- * Register an athlete and atomically assign the next available bib number.
- * Returns the created athlete with bib, or throws if no bibs available.
- */
-export function registerAthlete(data: {
+export async function registerAthlete(data: {
   student_id: string;
   first_name: string;
   last_name: string;
   grade: number;
   gender: 'M' | 'F';
-}): Athlete {
-  const db = getDb();
+}): Promise<Athlete> {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
 
-  const register = db.transaction(() => {
-    // Insert athlete without bib first
-    const result = db.prepare(
-      'INSERT INTO athletes (student_id, first_name, last_name, grade, gender) VALUES (?, ?, ?, ?, ?)'
-    ).run(data.student_id, data.first_name, data.last_name, data.grade, data.gender);
+    const insertResult = await client.query(
+      'INSERT INTO athletes (student_id, first_name, last_name, grade, gender) VALUES ($1, $2, $3, $4, $5) RETURNING id',
+      [data.student_id, data.first_name, data.last_name, data.grade, data.gender]
+    );
+    const athleteId = insertResult.rows[0].id;
 
-    const athleteId = result.lastInsertRowid as number;
-
-    // Assign next available bib
-    const bibNumber = assignNextBib(athleteId);
+    const bibNumber = await assignNextBib(athleteId, client);
     if (bibNumber !== null) {
-      db.prepare('UPDATE athletes SET bib_number = ? WHERE id = ?').run(bibNumber, athleteId);
+      await client.query(
+        'UPDATE athletes SET bib_number = $1 WHERE id = $2',
+        [bibNumber, athleteId]
+      );
     }
 
-    return db.prepare('SELECT * FROM athletes WHERE id = ?').get(athleteId) as Athlete;
-  });
-
-  return register();
+    const { rows } = await client.query('SELECT * FROM athletes WHERE id = $1', [athleteId]);
+    await client.query('COMMIT');
+    return rows[0] as Athlete;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
-export function updateAthlete(id: number, updates: Partial<Omit<Athlete, 'id' | 'created_at'>>): Athlete | undefined {
-  const db = getDb();
-  const current = getAthleteById(id);
+export async function updateAthlete(id: number, updates: Partial<Omit<Athlete, 'id' | 'created_at'>>): Promise<Athlete | undefined> {
+  const current = await getAthleteById(id);
   if (!current) return undefined;
 
   const merged = { ...current, ...updates };
-  db.prepare(
-    'UPDATE athletes SET student_id = ?, first_name = ?, last_name = ?, grade = ?, gender = ? WHERE id = ?'
-  ).run(merged.student_id, merged.first_name, merged.last_name, merged.grade, merged.gender, id);
+  await sql`
+    UPDATE athletes SET student_id = ${merged.student_id}, first_name = ${merged.first_name},
+      last_name = ${merged.last_name}, grade = ${merged.grade}, gender = ${merged.gender}
+    WHERE id = ${id}
+  `;
 
   return getAthleteById(id);
 }
 
-export function deleteAthlete(id: number): boolean {
-  const db = getDb();
-  const athlete = getAthleteById(id);
+export async function deleteAthlete(id: number): Promise<boolean> {
+  const athlete = await getAthleteById(id);
   if (!athlete) return false;
 
   if (athlete.bib_number) {
-    unassignBib(athlete.bib_number);
+    await unassignBib(athlete.bib_number);
   }
 
-  const result = db.prepare('DELETE FROM athletes WHERE id = ?').run(id);
-  return result.changes > 0;
+  const result = await sql`DELETE FROM athletes WHERE id = ${id}`;
+  return (result.rowCount ?? 0) > 0;
 }
 
-export function getAthleteCount(): number {
-  const db = getDb();
-  return (db.prepare('SELECT COUNT(*) as count FROM athletes').get() as { count: number }).count;
+export async function getAthleteCount(): Promise<number> {
+  const { rows } = await sql`SELECT COUNT(*) as count FROM athletes`;
+  return Number(rows[0].count);
 }
 
-export function searchAthletes(query: string): Athlete[] {
-  const db = getDb();
+export async function searchAthletes(query: string): Promise<Athlete[]> {
   const like = `%${query}%`;
-  return db.prepare(
-    `SELECT * FROM athletes
-     WHERE first_name LIKE ? OR last_name LIKE ? OR student_id LIKE ? OR CAST(bib_number AS TEXT) LIKE ?
-     ORDER BY last_name, first_name`
-  ).all(like, like, like, like) as Athlete[];
+  const { rows } = await sql`
+    SELECT * FROM athletes
+    WHERE first_name ILIKE ${like} OR last_name ILIKE ${like} OR student_id ILIKE ${like} OR CAST(bib_number AS TEXT) ILIKE ${like}
+    ORDER BY last_name, first_name
+  `;
+  return rows as Athlete[];
 }

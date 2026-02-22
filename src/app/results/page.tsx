@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 
 interface ResultRow {
   id: number;
@@ -72,7 +71,12 @@ export default function ResultsPage() {
         if (statusFilter && r.qual_status !== statusFilter) return false;
         return true;
       });
-      filtered.sort((a, b) => sortAsc ? a.raw_value - b.raw_value : b.raw_value - a.raw_value);
+      // Time events: lower is better (ascending). Distance/height: higher is better (descending).
+      // sortAsc flips the natural order for the user.
+      const isTime = filtered[0]?.event_type === 'time';
+      const naturalAsc = isTime; // natural ranking direction
+      const asc = sortAsc ? naturalAsc : !naturalAsc;
+      filtered.sort((a, b) => asc ? a.raw_value - b.raw_value : b.raw_value - a.raw_value);
       if (filtered.length > 0) out[eventName] = filtered;
     }
     return out;
@@ -91,9 +95,6 @@ export default function ResultsPage() {
               Updated: {lastUpdate.toLocaleTimeString()} (auto-refreshes)
             </p>
           </div>
-          <Link href="/" className="px-3 py-2 bg-gray-700 rounded hover:bg-gray-600 transition text-sm shrink-0">
-            Home
-          </Link>
         </div>
 
         <div className="flex flex-wrap items-center gap-3 mb-6">
@@ -158,15 +159,15 @@ export default function ResultsPage() {
                 </span>
               </div>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
+                <table className="w-full text-sm sm:text-base">
                   <thead>
-                    <tr className="text-white border-b border-gray-600 bg-gray-700/50">
-                      <th className="text-left px-2 sm:px-4 py-2.5 w-8 sm:w-12 font-bold">#</th>
-                      <th className="text-left px-2 sm:px-4 py-2.5 font-bold">Athlete</th>
-                      <th className="text-center px-2 sm:px-4 py-2.5 w-12 sm:w-16 font-bold">Bib</th>
-                      <th className="text-center px-2 sm:px-4 py-2.5 w-16 hidden sm:table-cell font-bold">Grade</th>
-                      <th className="text-right px-2 sm:px-4 py-2.5 font-bold">Result</th>
-                      <th className="text-right px-2 sm:px-4 py-2.5 w-16 sm:w-20 font-bold">Status</th>
+                    <tr className="text-white border-b border-gray-600 bg-gray-700/50 text-xs sm:text-sm uppercase tracking-wide">
+                      <th className="text-left px-2 sm:px-4 py-2.5 w-8 sm:w-12 font-semibold">#</th>
+                      <th className="text-left px-2 sm:px-4 py-2.5 font-semibold">Athlete</th>
+                      <th className="text-center px-2 sm:px-4 py-2.5 w-12 sm:w-16 font-semibold">Bib</th>
+                      <th className="text-center px-2 sm:px-4 py-2.5 w-16 hidden sm:table-cell font-semibold">Grade</th>
+                      <th className="text-right px-2 sm:px-4 py-2.5 font-semibold">Result</th>
+                      <th className="text-right px-2 sm:px-4 py-2.5 w-16 sm:w-20 font-semibold">Status</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -176,7 +177,7 @@ export default function ResultsPage() {
                         r.qual_status === 'provisional' ? 'bg-yellow-900/15' : ''
                       }`}>
                         <td className="px-2 sm:px-4 py-2.5 text-white font-mono">{idx + 1}</td>
-                        <td className="px-2 sm:px-4 py-2.5 font-medium text-white">{r.first_name} {r.last_name}</td>
+                        <td className="px-2 sm:px-4 py-2.5 font-semibold text-white">{r.first_name} {r.last_name}</td>
                         <td className="px-2 sm:px-4 py-2.5 text-center font-mono text-white">{r.bib_number ?? '—'}</td>
                         <td className="px-2 sm:px-4 py-2.5 text-center text-white hidden sm:table-cell">{r.grade}</td>
                         <td className="px-2 sm:px-4 py-2.5 text-right font-mono font-bold text-base sm:text-lg text-white">{r.display_value}</td>

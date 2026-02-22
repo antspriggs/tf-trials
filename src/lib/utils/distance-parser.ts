@@ -6,6 +6,15 @@ export function parseDistance(input: string): { raw: number; display: string } |
   const trimmed = input.trim();
   if (!trimmed) return null;
 
+  // Feet-inches: 18-6, 18-6.5
+  const dashMatch = trimmed.match(/^(\d+)-(\d+(?:\.\d+)?)$/);
+  if (dashMatch) {
+    const feet = parseInt(dashMatch[1], 10);
+    const inches = parseFloat(dashMatch[2]);
+    const totalFeet = feet + inches / 12;
+    return { raw: totalFeet, display: trimmed };
+  }
+
   // Feet and inches: 5'10", 5'10, 5' 10"
   const feetInchMatch = trimmed.match(/^(\d+)['']\s*(\d+(?:\.\d+)?)["""]?\s*$/);
   if (feetInchMatch) {
