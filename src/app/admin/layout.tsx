@@ -28,6 +28,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <Link href="/timer" className="px-2 sm:px-3 py-1.5 text-xs sm:text-sm text-gray-300 hover:text-white transition">
                 Timer
               </Link>
+              <Link href="/timer/multi" className="px-2 sm:px-3 py-1.5 text-xs sm:text-sm text-gray-300 hover:text-white transition">
+                Multi Timer
+              </Link>
               <Link href="/" className="px-2 sm:px-3 py-1.5 text-xs sm:text-sm text-gray-300 hover:text-white transition">
                 Home
               </Link>
