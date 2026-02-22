@@ -23,9 +23,26 @@ export default function ExportPage() {
       .then(csv => {
         const lines = csv.split('\n').slice(1); // skip header
         const rows = lines.filter(l => l.trim()).map(line => {
-          const cols = line.match(/("(?:[^"]|"")*"|[^,]*)/g)?.map(c =>
-            c.replace(/^"|"$/g, '').replace(/""/g, '"')
-          ) || [];
+          const cols: string[] = [];
+          let i = 0;
+          while (i < line.length) {
+            if (line[i] === '"') {
+              let j = i + 1;
+              while (j < line.length) {
+                if (line[j] === '"') {
+                  if (line[j + 1] === '"') { j += 2; }
+                  else { break; }
+                } else { j++; }
+              }
+              cols.push(line.slice(i + 1, j).replace(/""/g, '"'));
+              i = j + 2;
+            } else {
+              const next = line.indexOf(',', i);
+              if (next === -1) { cols.push(line.slice(i)); break; }
+              cols.push(line.slice(i, next));
+              i = next + 1;
+            }
+          }
           return {
             first_name: cols[0] || '',
             last_name: cols[1] || '',

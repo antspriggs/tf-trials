@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 
 interface Bib {
   bib_number: number;
-  is_assigned: number;
+  is_assigned: boolean;
   assigned_to: number | null;
 }
 
@@ -51,6 +51,18 @@ export default function BibsPage() {
       loadBibs();
     } else {
       setMessage(data.error);
+    }
+  };
+
+  const deleteBib = async (bibNumber: number) => {
+    if (!confirm(`Delete bib #${bibNumber}?`)) return;
+    const res = await fetch(`/api/bibs/${bibNumber}`, { method: 'DELETE' });
+    if (res.ok) {
+      setMessage(`Deleted bib #${bibNumber}`);
+      loadBibs();
+    } else {
+      const data = await res.json();
+      setMessage(data.error || 'Failed to delete');
     }
   };
 
@@ -109,8 +121,15 @@ export default function BibsPage() {
           <h2 className="font-semibold mb-2">Available ({available.length})</h2>
           <div className="flex flex-wrap gap-1.5 max-h-64 overflow-y-auto">
             {available.map(b => (
-              <span key={b.bib_number} className="inline-block px-2 py-0.5 bg-green-100 text-green-800 rounded text-sm">
+              <span key={b.bib_number} className="inline-flex items-center gap-0.5 px-2 py-0.5 bg-green-100 text-green-800 rounded text-sm">
                 {b.bib_number}
+                <button
+                  onClick={() => deleteBib(b.bib_number)}
+                  className="ml-0.5 text-green-600 hover:text-red-600 font-bold leading-none"
+                  title={`Delete bib #${b.bib_number}`}
+                >
+                  &times;
+                </button>
               </span>
             ))}
             {available.length === 0 && <p className="text-gray-400 text-sm">No bibs available</p>}

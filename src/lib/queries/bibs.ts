@@ -1,76 +1,102 @@
-import { getDb } from '../db';
+import { sql, getClient } from '../db';
 import type { Bib } from '../types';
 
-export function getAllBibs(): Bib[] {
-  const db = getDb();
-  return db.prepare('SELECT * FROM bib_pool ORDER BY bib_number').all() as Bib[];
+export async function getAllBibs(): Promise<Bib[]> {
+  const { rows } = await sql`SELECT * FROM bib_pool ORDER BY bib_number`;
+  return rows as Bib[];
 }
 
-export function getAvailableBibs(): Bib[] {
-  const db = getDb();
-  return db.prepare('SELECT * FROM bib_pool WHERE is_assigned = 0 ORDER BY bib_number').all() as Bib[];
+export async function getAvailableBibs(): Promise<Bib[]> {
+  const { rows } = await sql`SELECT * FROM bib_pool WHERE is_assigned = FALSE ORDER BY bib_number`;
+  return rows as Bib[];
 }
 
-export function addBibRange(start: number, end: number): number {
-  const db = getDb();
-  const insert = db.prepare(
-    'INSERT OR IGNORE INTO bib_pool (bib_number, is_assigned) VALUES (?, 0)'
-  );
-  const insertMany = db.transaction((start: number, end: number) => {
+export async function addBibRange(start: number, end: number): Promise<number> {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
     let count = 0;
     for (let i = start; i <= end; i++) {
-      const result = insert.run(i);
-      count += result.changes;
+      const result = await client.query(
+        'INSERT INTO bib_pool (bib_number, is_assigned) VALUES ($1, FALSE) ON CONFLICT DO NOTHING',
+        [i]
+      );
+      count += result.rowCount ?? 0;
     }
+    await client.query('COMMIT');
     return count;
-  });
-  return insertMany(start, end);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
-export function addBibList(bibs: number[]): number {
-  const db = getDb();
-  const insert = db.prepare(
-    'INSERT OR IGNORE INTO bib_pool (bib_number, is_assigned) VALUES (?, 0)'
-  );
-  const insertMany = db.transaction((bibs: number[]) => {
+export async function addBibList(bibs: number[]): Promise<number> {
+  const client = await getClient();
+  try {
+    await client.query('BEGIN');
     let count = 0;
     for (const bib of bibs) {
-      const result = insert.run(bib);
-      count += result.changes;
+      const result = await client.query(
+        'INSERT INTO bib_pool (bib_number, is_assigned) VALUES ($1, FALSE) ON CONFLICT DO NOTHING',
+        [bib]
+      );
+      count += result.rowCount ?? 0;
     }
+    await client.query('COMMIT');
     return count;
-  });
-  return insertMany(bibs);
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
+  } finally {
+    client.release();
+  }
 }
 
-export function assignNextBib(athleteId: number): number | null {
-  const db = getDb();
-  const assign = db.transaction(() => {
-    const bib = db.prepare(
-      'SELECT bib_number FROM bib_pool WHERE is_assigned = 0 ORDER BY bib_number LIMIT 1'
-    ).get() as { bib_number: number } | undefined;
+export async function assignNextBib(athleteId: number, client?: Awaited<ReturnType<typeof getClient>>): Promise<number | null> {
+  const useClient = client ?? await getClient();
+  try {
+    if (!client) await useClient.query('BEGIN');
 
-    if (!bib) return null;
+    const { rows } = await useClient.query(
+      'SELECT bib_number FROM bib_pool WHERE is_assigned = FALSE ORDER BY bib_number LIMIT 1 FOR UPDATE'
+    );
 
-    db.prepare(
-      'UPDATE bib_pool SET is_assigned = 1, assigned_to = ? WHERE bib_number = ?'
-    ).run(athleteId, bib.bib_number);
+    if (rows.length === 0) {
+      if (!client) await useClient.query('COMMIT');
+      return null;
+    }
 
-    return bib.bib_number;
-  });
-  return assign();
+    await useClient.query(
+      'UPDATE bib_pool SET is_assigned = TRUE, assigned_to = $1 WHERE bib_number = $2',
+      [athleteId, rows[0].bib_number]
+    );
+
+    if (!client) await useClient.query('COMMIT');
+    return rows[0].bib_number;
+  } catch (err) {
+    if (!client) await useClient.query('ROLLBACK');
+    throw err;
+  } finally {
+    if (!client) useClient.release();
+  }
 }
 
-export function unassignBib(bibNumber: number): void {
-  const db = getDb();
-  db.prepare(
-    'UPDATE bib_pool SET is_assigned = 0, assigned_to = NULL WHERE bib_number = ?'
-  ).run(bibNumber);
+export async function unassignBib(bibNumber: number): Promise<void> {
+  await sql`UPDATE bib_pool SET is_assigned = FALSE, assigned_to = NULL WHERE bib_number = ${bibNumber}`;
 }
 
-export function getBibStats(): { total: number; assigned: number; available: number } {
-  const db = getDb();
-  const total = (db.prepare('SELECT COUNT(*) as count FROM bib_pool').get() as { count: number }).count;
-  const assigned = (db.prepare('SELECT COUNT(*) as count FROM bib_pool WHERE is_assigned = 1').get() as { count: number }).count;
+export async function deleteBib(bibNumber: number): Promise<boolean> {
+  const result = await sql`DELETE FROM bib_pool WHERE bib_number = ${bibNumber} AND is_assigned = FALSE`;
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function getBibStats(): Promise<{ total: number; assigned: number; available: number }> {
+  const totalResult = await sql`SELECT COUNT(*) as count FROM bib_pool`;
+  const assignedResult = await sql`SELECT COUNT(*) as count FROM bib_pool WHERE is_assigned = TRUE`;
+  const total = Number(totalResult.rows[0].count);
+  const assigned = Number(assignedResult.rows[0].count);
   return { total, assigned, available: total - assigned };
 }

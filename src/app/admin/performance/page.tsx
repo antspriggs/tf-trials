@@ -35,7 +35,9 @@ export default function PerformancePage() {
   const [selectedAthlete, setSelectedAthlete] = useState<Athlete | null>(null);
   const [selectedEvent, setSelectedEvent] = useState('');
   const [value, setValue] = useState('');
-  const [message, setMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+  const [message, setMessage] = useState<{ text: string; type: 'success' | 'warning' | 'error' } | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState('');
 
   const bibRef = useRef<HTMLInputElement>(null);
   const valueRef = useRef<HTMLInputElement>(null);
@@ -85,8 +87,8 @@ export default function PerformancePage() {
       const qualLabel = data.qual_status === 'automatic' ? 'AUTO QUALIFY' :
                         data.qual_status === 'provisional' ? 'PROVISIONAL' : 'DNQ';
       const qualColor = data.qual_status === 'automatic' ? 'success' :
-                        data.qual_status === 'provisional' ? 'success' : 'error';
-      setMessage({ text: `Recorded: ${data.display_value} — ${qualLabel}`, type: qualColor as 'success' | 'error' });
+                        data.qual_status === 'provisional' ? 'warning' : 'error';
+      setMessage({ text: `Recorded: ${data.display_value} — ${qualLabel}`, type: qualColor });
       setRecentPerfs(prev => [data, ...prev.slice(0, 19)]);
       // Reset for next entry
       setBibInput('');
@@ -101,6 +103,45 @@ export default function PerformancePage() {
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter') {
       submit();
+    }
+  };
+
+  const startEdit = (perf: Performance) => {
+    setEditingId(perf.id);
+    setEditValue(perf.display_value);
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditValue('');
+  };
+
+  const saveEdit = async (id: number) => {
+    const res = await fetch(`/api/performances/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ value: editValue }),
+    });
+    const data = await res.json();
+    if (res.ok) {
+      setRecentPerfs(prev => prev.map(p => p.id === id ? data : p));
+      setEditingId(null);
+      setEditValue('');
+      setMessage({ text: 'Performance updated', type: 'success' });
+    } else {
+      setMessage({ text: data.error || 'Failed to update', type: 'error' });
+    }
+  };
+
+  const deletePerf = async (id: number) => {
+    if (!confirm('Delete this performance?')) return;
+    const res = await fetch(`/api/performances/${id}`, { method: 'DELETE' });
+    if (res.ok) {
+      setRecentPerfs(prev => prev.filter(p => p.id !== id));
+      setMessage({ text: 'Performance deleted', type: 'success' });
+    } else {
+      const data = await res.json();
+      setMessage({ text: data.error || 'Failed to delete', type: 'error' });
     }
   };
 
@@ -175,7 +216,8 @@ export default function PerformancePage() {
 
         {message && (
           <div className={`mt-4 px-4 py-2 rounded font-medium ${
-            message.type === 'success' ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+            message.type === 'success' ? 'bg-green-50 text-green-700' :
+              message.type === 'warning' ? 'bg-yellow-50 text-yellow-700' : 'bg-red-50 text-red-700'
           }`}>
             {message.text}
           </div>
@@ -191,6 +233,7 @@ export default function PerformancePage() {
               <th className="text-left px-4 py-2 font-medium">Event</th>
               <th className="text-left px-4 py-2 font-medium">Value</th>
               <th className="text-left px-4 py-2 font-medium">Status</th>
+              <th className="text-left px-4 py-2 font-medium">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
@@ -198,7 +241,20 @@ export default function PerformancePage() {
               <tr key={p.id} className="hover:bg-gray-50">
                 <td className="px-4 py-2">{getAthleteName(p.athlete_id)}</td>
                 <td className="px-4 py-2">{getEventName(p.event_id)}</td>
-                <td className="px-4 py-2 font-mono">{p.display_value}</td>
+                <td className="px-4 py-2 font-mono">
+                  {editingId === p.id ? (
+                    <input
+                      type="text"
+                      value={editValue}
+                      onChange={e => setEditValue(e.target.value)}
+                      onKeyDown={e => { if (e.key === 'Enter') saveEdit(p.id); if (e.key === 'Escape') cancelEdit(); }}
+                      className="w-28 border border-gray-300 rounded px-2 py-0.5 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      autoFocus
+                    />
+                  ) : (
+                    p.display_value
+                  )}
+                </td>
                 <td className="px-4 py-2">
                   <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${
                     p.qual_status === 'automatic' ? 'bg-green-100 text-green-700' :
@@ -208,10 +264,23 @@ export default function PerformancePage() {
                     {p.qual_status === 'automatic' ? 'AUTO' : p.qual_status === 'provisional' ? 'PROV' : 'DNQ'}
                   </span>
                 </td>
+                <td className="px-4 py-2">
+                  {editingId === p.id ? (
+                    <div className="flex gap-1">
+                      <button onClick={() => saveEdit(p.id)} className="px-2 py-0.5 text-xs bg-green-600 text-white rounded hover:bg-green-700">Save</button>
+                      <button onClick={cancelEdit} className="px-2 py-0.5 text-xs bg-gray-300 text-gray-700 rounded hover:bg-gray-400">Cancel</button>
+                    </div>
+                  ) : (
+                    <div className="flex gap-1">
+                      <button onClick={() => startEdit(p)} className="px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200">Edit</button>
+                      <button onClick={() => deletePerf(p.id)} className="px-2 py-0.5 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200">Delete</button>
+                    </div>
+                  )}
+                </td>
               </tr>
             ))}
             {recentPerfs.length === 0 && (
-              <tr><td colSpan={4} className="px-4 py-8 text-center text-gray-400">No performances recorded yet</td></tr>
+              <tr><td colSpan={5} className="px-4 py-8 text-center text-gray-400">No performances recorded yet</td></tr>
             )}
           </tbody>
         </table>
