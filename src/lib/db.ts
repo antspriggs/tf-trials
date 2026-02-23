@@ -2,6 +2,10 @@ import { Pool, type QueryResultRow } from 'pg';
 
 const pool = new Pool({
   connectionString: process.env.POSTGRES_URL,
+  max: process.env.VERCEL ? 1 : 10,
+  ssl: process.env.POSTGRES_URL?.includes('localhost')
+    ? false
+    : { rejectUnauthorized: false },
 });
 
 /**
