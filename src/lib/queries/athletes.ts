@@ -65,7 +65,8 @@ export async function updateAthlete(id: number, updates: Partial<Omit<Athlete, '
   const merged = { ...current, ...updates };
   await sql`
     UPDATE athletes SET student_id = ${merged.student_id}, first_name = ${merged.first_name},
-      last_name = ${merged.last_name}, grade = ${merged.grade}, gender = ${merged.gender}
+      last_name = ${merged.last_name}, grade = ${merged.grade}, gender = ${merged.gender},
+      coaches_discretion = ${merged.coaches_discretion}
     WHERE id = ${id}
   `;
 

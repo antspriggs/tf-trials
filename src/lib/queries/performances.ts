@@ -74,7 +74,7 @@ export async function getResults(): Promise<Record<string, ResultRow[]>> {
   const { rows } = await sql`
     SELECT
       p.id, p.athlete_id, p.event_id, p.raw_value, p.display_value, p.qual_status,
-      a.first_name, a.last_name, a.bib_number, a.grade, a.gender,
+      a.first_name, a.last_name, a.bib_number, a.grade, a.gender, a.coaches_discretion,
       e.name as event_name, e.type as event_type, e.unit as event_unit
     FROM performances p
     JOIN athletes a ON p.athlete_id = a.id

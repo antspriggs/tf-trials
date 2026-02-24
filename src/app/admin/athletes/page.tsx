@@ -10,6 +10,7 @@ interface Athlete {
   grade: number;
   gender: 'M' | 'F';
   bib_number: number | null;
+  coaches_discretion: boolean;
   created_at: string;
 }
 
@@ -29,6 +30,15 @@ export default function AthletesPage() {
   const deleteAthlete = async (id: number) => {
     if (!confirm('Delete this athlete? Their performances will also be deleted.')) return;
     await fetch(`/api/athletes/${id}`, { method: 'DELETE' });
+    loadAthletes();
+  };
+
+  const toggleDiscretion = async (athlete: Athlete) => {
+    await fetch(`/api/athletes/${athlete.id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ coaches_discretion: !athlete.coaches_discretion }),
+    });
     loadAthletes();
   };
 
@@ -70,6 +80,7 @@ export default function AthletesPage() {
               <th className="text-left px-4 py-3 font-medium">Student ID</th>
               <th className="text-left px-4 py-3 font-medium">Grade</th>
               <th className="text-left px-4 py-3 font-medium">Gender</th>
+              <th className="text-center px-4 py-3 font-medium">Coach&apos;s Pick</th>
               <th className="text-right px-4 py-3 font-medium">Actions</th>
             </tr>
           </thead>
@@ -85,6 +96,14 @@ export default function AthletesPage() {
                 <td className="px-4 py-3 text-gray-600">{a.student_id}</td>
                 <td className="px-4 py-3">{a.grade}</td>
                 <td className="px-4 py-3">{a.gender}</td>
+                <td className="px-4 py-3 text-center">
+                  <button
+                    onClick={() => toggleDiscretion(a)}
+                    className={`px-2 py-0.5 rounded text-xs font-medium ${a.coaches_discretion ? 'bg-purple-100 text-purple-700' : 'bg-gray-100 text-gray-400 hover:bg-gray-200'}`}
+                  >
+                    {a.coaches_discretion ? 'Yes' : 'No'}
+                  </button>
+                </td>
                 <td className="px-4 py-3 text-right">
                   <button onClick={() => deleteAthlete(a.id)} className="px-3 py-1 bg-red-100 text-red-700 rounded text-xs hover:bg-red-200">
                     Delete
@@ -93,7 +112,7 @@ export default function AthletesPage() {
               </tr>
             ))}
             {filtered.length === 0 && (
-              <tr><td colSpan={6} className="px-4 py-8 text-center text-gray-400">No athletes found</td></tr>
+              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No athletes found</td></tr>
             )}
           </tbody>
         </table>

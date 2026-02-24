@@ -26,6 +26,7 @@ export interface Athlete {
   grade: number;
   gender: 'M' | 'F';
   bib_number: number | null;
+  coaches_discretion: boolean;
   created_at: string;
 }
 
@@ -54,6 +55,7 @@ export interface ResultRow {
   event_name: string;
   event_type: 'time' | 'distance' | 'height';
   event_unit: string;
+  coaches_discretion: boolean;
 }
 
 export interface ExportRow {

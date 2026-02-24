@@ -17,6 +17,7 @@ interface ResultRow {
   event_name: string;
   event_type: string;
   event_unit: string;
+  coaches_discretion: boolean;
 }
 
 interface Event {
@@ -71,6 +72,33 @@ export default function ResultsPage() {
       }
     });
     return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [results]);
+
+  const discretionAthletes = useMemo(() => {
+    const allRows = Object.values(results).flat();
+    // Find athletes flagged as coach's discretion
+    const athleteRows = new Map<number, ResultRow[]>();
+    const athleteHasQual = new Set<number>();
+    for (const r of allRows) {
+      if (!r.coaches_discretion) continue;
+      if (!athleteRows.has(r.athlete_id)) athleteRows.set(r.athlete_id, []);
+      athleteRows.get(r.athlete_id)!.push(r);
+      if (r.qual_status === 'automatic' || r.qual_status === 'provisional') {
+        athleteHasQual.add(r.athlete_id);
+      }
+    }
+    // Only show athletes who don't already have qualifying performances
+    const result: { athlete: { id: number; name: string; bib: number | null; grade: number; gender: string }; rows: ResultRow[] }[] = [];
+    for (const [id, rows] of athleteRows) {
+      if (athleteHasQual.has(id)) continue;
+      const first = rows[0];
+      result.push({
+        athlete: { id, name: `${first.first_name} ${first.last_name}`, bib: first.bib_number, grade: first.grade, gender: first.gender },
+        rows,
+      });
+    }
+    result.sort((a, b) => a.athlete.name.localeCompare(b.athlete.name));
+    return result;
   }, [results]);
 
   const filteredResults = useMemo(() => {
@@ -213,6 +241,38 @@ export default function ResultsPage() {
             </div>
           ))}
         </div>
+
+        {discretionAthletes.length > 0 && (
+          <div className="mt-8">
+            <div className="bg-purple-900/30 border border-purple-700/50 rounded-lg overflow-hidden">
+              <div className="px-4 py-3 bg-purple-800/40 flex items-center gap-2">
+                <h2 className="text-xl font-bold text-purple-200">Coach&apos;s Discretion</h2>
+                <span className="text-sm text-purple-400">
+                  {discretionAthletes.length} athlete{discretionAthletes.length !== 1 ? 's' : ''}
+                </span>
+              </div>
+              <div className="divide-y divide-purple-800/30">
+                {discretionAthletes.map(({ athlete, rows }) => (
+                  <div key={athlete.id} className="px-4 py-3">
+                    <div className="flex items-center gap-3 mb-2">
+                      <span className="font-semibold text-purple-100">{athlete.name}</span>
+                      <span className="font-mono text-sm text-purple-300">Bib {athlete.bib ?? '—'}</span>
+                      <span className="text-sm text-purple-400">Grade {athlete.grade}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-3">
+                      {rows.map(r => (
+                        <div key={r.id} className="bg-purple-900/40 rounded px-3 py-1.5 text-sm">
+                          <span className="text-purple-300">{r.event_name}:</span>{' '}
+                          <span className="font-mono font-bold text-white">{r.display_value}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
 
         {eventsWithoutResults.length > 0 && (
           <div className="mt-8">

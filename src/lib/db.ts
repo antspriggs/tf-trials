@@ -63,6 +63,7 @@ export async function initSchema() {
       grade INTEGER NOT NULL,
       gender TEXT NOT NULL CHECK(gender IN ('M', 'F')),
       bib_number INTEGER REFERENCES bib_pool(bib_number),
+      coaches_discretion BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     )
   `);
@@ -95,6 +96,11 @@ export async function initSchema() {
       END IF;
     END
     $$
+  `);
+
+  // Add coaches_discretion column for existing databases
+  await pool.query(`
+    ALTER TABLE athletes ADD COLUMN IF NOT EXISTS coaches_discretion BOOLEAN DEFAULT FALSE
   `);
 
   schemaInitialized = true;
