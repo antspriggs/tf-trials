@@ -32,6 +32,7 @@ export default function ResultsPage() {
   const [genderFilter, setGenderFilter] = useState<'' | 'M' | 'F'>('');
   const [gradeFilter, setGradeFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<'' | 'automatic' | 'provisional' | 'dnq'>('');
+  const [athleteFilter, setAthleteFilter] = useState<string>('');
   const [sortAsc, setSortAsc] = useState(true);
 
   const fetchResults = () => {
@@ -62,12 +63,23 @@ export default function ResultsPage() {
     return Array.from(grades).sort((a, b) => a - b);
   }, [results]);
 
+  const allAthletes = useMemo(() => {
+    const map = new Map<number, { id: number; name: string }>();
+    Object.values(results).flat().forEach(r => {
+      if (!map.has(r.athlete_id)) {
+        map.set(r.athlete_id, { id: r.athlete_id, name: `${r.first_name} ${r.last_name}` });
+      }
+    });
+    return Array.from(map.values()).sort((a, b) => a.name.localeCompare(b.name));
+  }, [results]);
+
   const filteredResults = useMemo(() => {
     const out: Record<string, ResultRow[]> = {};
     for (const [eventName, rows] of Object.entries(results)) {
       let filtered = rows.filter(r => {
         if (genderFilter && r.gender !== genderFilter) return false;
         if (gradeFilter && String(r.grade) !== gradeFilter) return false;
+        if (athleteFilter && String(r.athlete_id) !== athleteFilter) return false;
         if (statusFilter && r.qual_status !== statusFilter) return false;
         return true;
       });
@@ -80,7 +92,7 @@ export default function ResultsPage() {
       if (filtered.length > 0) out[eventName] = filtered;
     }
     return out;
-  }, [results, genderFilter, gradeFilter, statusFilter, sortAsc]);
+  }, [results, genderFilter, gradeFilter, athleteFilter, statusFilter, sortAsc]);
 
   const eventsWithResults = events.filter(e => filteredResults[e.name]?.length > 0);
   const eventsWithoutResults = events.filter(e => !filteredResults[e.name]);
@@ -118,6 +130,17 @@ export default function ResultsPage() {
             <option value="">All Grades</option>
             {allGrades.map(g => (
               <option key={g} value={String(g)}>Grade {g}</option>
+            ))}
+          </select>
+
+          <select
+            value={athleteFilter}
+            onChange={e => setAthleteFilter(e.target.value)}
+            className="bg-gray-700 text-gray-300 text-sm rounded px-3 py-1.5 border-none outline-none hover:bg-gray-600 transition"
+          >
+            <option value="">All Athletes</option>
+            {allAthletes.map(a => (
+              <option key={a.id} value={String(a.id)}>{a.name}</option>
             ))}
           </select>
 
