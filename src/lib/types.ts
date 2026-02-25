@@ -67,4 +67,5 @@ export interface ExportRow {
   bib_number: number | null;
   auto_qualified_events: string;
   prov_qualified_events: string;
+  coaches_discretion: boolean;
 }

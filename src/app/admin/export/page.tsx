@@ -11,6 +11,7 @@ interface ExportRow {
   bib_number: number | null;
   auto_qualified_events: string;
   prov_qualified_events: string;
+  coaches_discretion: boolean;
 }
 
 export default function ExportPage() {
@@ -52,6 +53,7 @@ export default function ExportPage() {
             bib_number: cols[5] ? parseInt(cols[5]) : null,
             auto_qualified_events: cols[6] || '',
             prov_qualified_events: cols[7] || '',
+            coaches_discretion: (cols[8] || '').toLowerCase() === 'yes',
           };
         });
         setData(rows);
@@ -85,6 +87,7 @@ export default function ExportPage() {
               <th className="text-left px-4 py-3 font-medium">Bib</th>
               <th className="text-left px-4 py-3 font-medium">Auto-Qualified</th>
               <th className="text-left px-4 py-3 font-medium">Provisional</th>
+              <th className="text-left px-4 py-3 font-medium">Coach&apos;s Discretion</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200">
@@ -105,10 +108,15 @@ export default function ExportPage() {
                     <span className="text-yellow-700">{row.prov_qualified_events}</span>
                   ) : <span className="text-gray-400">—</span>}
                 </td>
+                <td className="px-4 py-2">
+                  {row.coaches_discretion ? (
+                    <span className="px-2 py-0.5 bg-purple-100 text-purple-700 rounded text-xs font-medium">Yes</span>
+                  ) : <span className="text-gray-400">—</span>}
+                </td>
               </tr>
             ))}
             {data.length === 0 && (
-              <tr><td colSpan={7} className="px-4 py-8 text-center text-gray-400">No athletes to export</td></tr>
+              <tr><td colSpan={8} className="px-4 py-8 text-center text-gray-400">No athletes to export</td></tr>
             )}
           </tbody>
         </table>

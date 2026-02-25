@@ -6,7 +6,7 @@ export async function GET() {
   await initSchema();
   const data = await getExportData();
 
-  const headers = ['First Name', 'Last Name', 'Student ID', 'Grade', 'Gender', 'Bib Number', 'Auto-Qualified Events', 'Provisionally-Qualified Events'];
+  const headers = ['First Name', 'Last Name', 'Student ID', 'Grade', 'Gender', 'Bib Number', 'Auto-Qualified Events', 'Provisionally-Qualified Events', "Coach's Discretion"];
   const rows = data.map(d => [
     d.first_name,
     d.last_name,
@@ -16,6 +16,7 @@ export async function GET() {
     d.bib_number !== null ? String(d.bib_number) : '',
     d.auto_qualified_events,
     d.prov_qualified_events,
+    d.coaches_discretion ? 'Yes' : 'No',
   ]);
 
   const csvContent = [

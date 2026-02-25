@@ -128,13 +128,13 @@ export async function getPerformanceCount(): Promise<number> {
 export async function getExportData() {
   const { rows } = await sql`
     SELECT
-      a.first_name, a.last_name, a.student_id, a.grade, a.gender, a.bib_number,
+      a.first_name, a.last_name, a.student_id, a.grade, a.gender, a.bib_number, a.coaches_discretion,
       STRING_AGG(DISTINCT e.name, ', ') FILTER (WHERE p.qual_status = 'automatic') as auto_qualified_events,
       STRING_AGG(DISTINCT e.name, ', ') FILTER (WHERE p.qual_status = 'provisional') as prov_qualified_events
     FROM athletes a
     LEFT JOIN performances p ON p.athlete_id = a.id
     LEFT JOIN events e ON p.event_id = e.id
-    GROUP BY a.id, a.first_name, a.last_name, a.student_id, a.grade, a.gender, a.bib_number
+    GROUP BY a.id, a.first_name, a.last_name, a.student_id, a.grade, a.gender, a.bib_number, a.coaches_discretion
     ORDER BY a.last_name, a.first_name
   `;
 
@@ -147,5 +147,6 @@ export async function getExportData() {
     bib_number: r.bib_number,
     auto_qualified_events: r.auto_qualified_events || '',
     prov_qualified_events: r.prov_qualified_events || '',
+    coaches_discretion: r.coaches_discretion || false,
   }));
 }
