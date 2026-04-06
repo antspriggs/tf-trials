@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 
 interface Athlete {
   id: number;
@@ -32,7 +32,6 @@ export default function PerformancePage() {
   const [recentPerfs, setRecentPerfs] = useState<Performance[]>([]);
 
   const [bibInput, setBibInput] = useState('');
-  const [selectedAthlete, setSelectedAthlete] = useState<Athlete | null>(null);
   const [selectedEvent, setSelectedEvent] = useState('');
   const [value, setValue] = useState('');
   const [message, setMessage] = useState<{ text: string; type: 'success' | 'warning' | 'error' } | null>(null);
@@ -48,23 +47,18 @@ export default function PerformancePage() {
     fetch('/api/performances').then(r => r.json()).then((p: Performance[]) => setRecentPerfs(p.slice(0, 20)));
   }, []);
 
-  const lookupBib = () => {
+  const selectedAthlete = useMemo(() => {
     const bib = parseInt(bibInput);
-    if (isNaN(bib)) { setSelectedAthlete(null); return; }
-    const athlete = athletes.find(a => a.bib_number === bib);
-    setSelectedAthlete(athlete || null);
-    if (athlete && !selectedEvent && events.length > 0) {
-      // focus value field if event already selected
-    }
-    if (!athlete) {
-      setMessage({ text: `No athlete with bib #${bib}`, type: 'error' });
-    } else {
-      setMessage(null);
-    }
-  };
+    if (isNaN(bib)) return null;
+    return athletes.find(a => a.bib_number === bib) || null;
+  }, [bibInput, athletes]);
 
-  useEffect(() => {
-    lookupBib();
+  const bibError = useMemo(() => {
+    const bib = parseInt(bibInput);
+    if (isNaN(bib) || !bibInput.trim()) return null;
+    const athlete = athletes.find(a => a.bib_number === bib);
+    if (!athlete) return `No athlete with bib #${bib}`;
+    return null;
   }, [bibInput, athletes]);
 
   const submit = async () => {
@@ -93,7 +87,6 @@ export default function PerformancePage() {
       // Reset for next entry
       setBibInput('');
       setValue('');
-      setSelectedAthlete(null);
       bibRef.current?.focus();
     } else {
       setMessage({ text: data.error, type: 'error' });
@@ -171,6 +164,11 @@ export default function PerformancePage() {
             {selectedAthlete && (
               <div className="mt-1 text-sm text-green-700 font-medium">
                 {selectedAthlete.first_name} {selectedAthlete.last_name}
+              </div>
+            )}
+            {bibError && (
+              <div className="mt-1 text-sm text-red-600 font-medium">
+                {bibError}
               </div>
             )}
           </div>

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import { useEffect, useState, useRef, useMemo } from 'react';
 import { formatTime } from '@/lib/utils/time-parser';
 
 interface Athlete {
@@ -133,13 +133,14 @@ export default function MultiTimerPage() {
   };
 
   // --- Timer ---
-  const updateDisplay = useCallback(() => {
+  const updateDisplayRef = useRef<() => void>(null);
+  updateDisplayRef.current = () => {
     const now = performance.now();
     const elapsedMs = now - startTimeRef.current;
     const elapsedSec = elapsedMs / 1000;
     setDisplayTime(formatElapsed(elapsedSec));
-    rafRef.current = requestAnimationFrame(updateDisplay);
-  }, []);
+    rafRef.current = requestAnimationFrame(() => updateDisplayRef.current?.());
+  };
 
   useEffect(() => {
     return () => cancelAnimationFrame(rafRef.current);
@@ -150,7 +151,7 @@ export default function MultiTimerPage() {
     setTimerState('running');
     startTimeRef.current = performance.now();
     elapsedAtStopRef.current = 0;
-    rafRef.current = requestAnimationFrame(updateDisplay);
+    rafRef.current = requestAnimationFrame(() => updateDisplayRef.current?.());
   };
 
   const handleStop = () => {
@@ -164,14 +165,15 @@ export default function MultiTimerPage() {
     const now = performance.now();
     startTimeRef.current = now - elapsedAtStopRef.current;
     setTimerState('running');
-    rafRef.current = requestAnimationFrame(updateDisplay);
+    rafRef.current = requestAnimationFrame(() => updateDisplayRef.current?.());
   };
 
   // --- Tap to finish ---
   const handleTap = async (athleteId: number) => {
     if (timerState !== 'running') return;
 
-    // Snapshot elapsed time synchronously
+    // Snapshot elapsed time synchronously (event handler, not render)
+    // eslint-disable-next-line react-hooks/purity -- performance.now() is called in an event handler, not during render
     const elapsedMs = performance.now() - startTimeRef.current;
     const elapsedSec = elapsedMs / 1000;
     const valueStr = formatTime(elapsedSec);
