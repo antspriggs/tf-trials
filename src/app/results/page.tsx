@@ -104,7 +104,7 @@ export default function ResultsPage() {
   const filteredResults = useMemo(() => {
     const out: Record<string, ResultRow[]> = {};
     for (const [eventName, rows] of Object.entries(results)) {
-      let filtered = rows.filter(r => {
+      const filtered = rows.filter(r => {
         if (genderFilter && r.gender !== genderFilter) return false;
         if (gradeFilter && String(r.grade) !== gradeFilter) return false;
         if (athleteFilter && String(r.athlete_id) !== athleteFilter) return false;

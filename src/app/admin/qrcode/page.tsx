@@ -1,14 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
 
 export default function QRCodePage() {
-  const [url, setUrl] = useState('');
-
-  useEffect(() => {
-    setUrl(`${window.location.origin}/register`);
-  }, []);
+  const [url, setUrl] = useState(() =>
+    typeof window !== 'undefined' ? `${window.location.origin}/register` : ''
+  );
 
   return (
     <div>
